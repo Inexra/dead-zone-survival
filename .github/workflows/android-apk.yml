@@ -1,0 +1,35 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Export Android APK
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Android SDK
+        run: |
+          mkdir -p "$ANDROID_HOME"
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Export APK
+        run: |
+          mkdir -p build
+          godot --headless --verbose --path . --export-debug "Android" build/dead-zone-survival.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dead-Zone-Survival-Android-APK
+          path: build/dead-zone-survival.apk
+          if-no-files-found: error
+          retention-days: 14
