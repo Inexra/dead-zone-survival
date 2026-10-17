@@ -48,8 +48,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func _physics_process(delta: float) -> void:
 	if mobile_look.length() > 0.0:
-		yaw -= mobile_look.x * delta * 2.4
-		pitch = clamp(pitch - mobile_look.y * delta * 1.8, -0.8, 0.35)
+		yaw -= mobile_look.x * 2.4
+		pitch = clamp(pitch - mobile_look.y * 1.8, -0.8, 0.35)
+		mobile_look = Vector2.ZERO
 	camera_pivot.rotation = Vector3(pitch, yaw, 0)
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	input_dir += mobile_move
