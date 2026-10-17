@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Export Android APK
@@ -15,16 +18,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure Android SDK
+      - name: Install Android export prerequisites
         run: |
-          mkdir -p "$ANDROID_HOME"
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends openjdk-17-jdk unzip wget
           yes | sdkmanager --licenses || true
           sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install matching Godot export templates
+        run: |
+          mkdir -p /tmp/godot-templates "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          wget -q https://github.com/godotengine/godot/releases/download/4.4.1-stable/Godot_v4.4.1-stable_export_templates.tpz -O /tmp/godot-templates/templates.tpz
+          unzip -q -o /tmp/godot-templates/templates.tpz -d /tmp/godot-templates/unpacked
+          cp /tmp/godot-templates/unpacked/templates/* "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+
+      - name: Configure Godot Android paths and debug signing
+        run: |
+          mkdir -p "$HOME/.config/godot" "$HOME/.android"
+          keytool -genkeypair -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
+          cat > "$HOME/.config/godot/editor_settings-4.tres" <<EOF
+          config_version=5
+          [resource]
+          export/android/android_sdk_path = "/usr/lib/android-sdk"
+          export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"
+          EOF
+          godot --headless --editor --path . --quit
+
+      - name: Validate project scripts
+        run: |
+          godot --headless --path . --editor --quit
 
       - name: Export APK
         run: |
           mkdir -p build
-          godot --headless --verbose --path . --export-debug "Android" build/dead-zone-survival.apk
+          godot --headless --path . --export-debug "Android" build/dead-zone-survival.apk
+          test -s build/dead-zone-survival.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
