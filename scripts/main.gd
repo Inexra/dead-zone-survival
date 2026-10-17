@@ -172,10 +172,10 @@ func _fire() -> void:
 		message_label.text = "RELOAD!"
 		return
 	ammo -= 1
-	var cam := player.camera
-	var origin := cam.global_position
-	var end := origin + -cam.global_transform.basis.z * 55.0
-	var query := PhysicsRayQueryParameters3D.create(origin, end)
+	var cam: Camera3D = player.camera
+	var origin: Vector3 = cam.global_position
+	var ray_end: Vector3 = origin + -cam.global_transform.basis.z * 55.0
+	var query := PhysicsRayQueryParameters3D.create(origin, ray_end)
 	query.exclude = [player.get_rid()]
 	var hit := get_world_3d().direct_space_state.intersect_ray(query)
 	if hit and hit.collider and hit.collider.is_in_group("zombies"):
