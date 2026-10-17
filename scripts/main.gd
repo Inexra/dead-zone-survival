@@ -9,6 +9,8 @@ var wave_label: Label
 var message_label: Label
 var ammo := 12
 var reserve_ammo := 72
+var medkits := 2
+var best_wave := 1
 var kills := 0
 var wave := 1
 var fire_cooldown := 0.0
@@ -18,6 +20,7 @@ var touch_look_active := false
 var look_last := Vector2.ZERO
 
 func _ready() -> void:
+	_load_progress()
 	_make_world()
 	player = CharacterBody3D.new()
 	player.set_script(PLAYER_SCRIPT)
@@ -90,6 +93,12 @@ func _make_ui() -> void:
 	fire_btn.anchor_top = 1
 	fire_btn.anchor_bottom = 1
 	fire_btn.button_down.connect(_fire)
+	var medkit_btn := _button(ui, "MEDKIT x2", Vector2(-390, -115), Vector2(105, 65))
+	medkit_btn.anchor_left = 1
+	medkit_btn.anchor_right = 1
+	medkit_btn.anchor_top = 1
+	medkit_btn.anchor_bottom = 1
+	medkit_btn.pressed.connect(_use_medkit)
 	var reload_btn := _button(ui, "RELOAD", Vector2(-275, -115), Vector2(105, 65))
 	reload_btn.anchor_left = 1
 	reload_btn.anchor_right = 1
@@ -144,6 +153,9 @@ func _process(delta: float) -> void:
 		spawn_timer = 0.0
 	if get_tree().get_nodes_in_group("zombies").is_empty():
 		wave += 1
+		if wave > best_wave:
+			best_wave = wave
+			_save_progress()
 		for i in range(mini(3 + wave, 12)):
 			_spawn_zombie()
 	if player.health <= 0:
@@ -153,7 +165,7 @@ func _process(delta: float) -> void:
 		message_label.gui_input.connect(func(event): if event is InputEventMouseButton and event.pressed: get_tree().reload_current_scene())
 	health_label.text = "HEALTH  " + str(roundi(player.health))
 	ammo_label.text = "AMMO  " + str(ammo) + " / " + str(reserve_ammo)
-	wave_label.text = "WAVE " + str(wave) + "  |  KILLS " + str(kills)
+	wave_label.text = "WAVE " + str(wave) + "  |  KILLS " + str(kills) + "  |  BEST " + str(best_wave)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
@@ -183,6 +195,7 @@ func _fire() -> void:
 		if hit.collider.health <= 0:
 			hit.collider.queue_free()
 			kills += 1
+			_save_progress()
 			if kills % 5 == 0:
 				reserve_ammo += 12
 
@@ -200,3 +213,23 @@ func _spawn_zombie() -> void:
 	var distance := randf_range(10, 24)
 	zombie.position = Vector3(cos(angle) * distance, 0.1, sin(angle) * distance)
 	add_child(zombie)
+
+func _use_medkit() -> void:
+	if game_over or medkits <= 0 or player.health >= 100.0:
+		message_label.text = "NO MEDKIT NEEDED" if player.health >= 100.0 else "NO MEDKITS LEFT"
+		return
+	medkits -= 1
+	player.health = minf(100.0, player.health + 40.0)
+	message_label.text = "FIRST AID USED"
+
+func _load_progress() -> void:
+	var data := ConfigFile.new()
+	if data.load("user://survival_save.cfg") == OK:
+		best_wave = int(data.get_value("progress", "best_wave", 1))
+		kills = int(data.get_value("progress", "total_kills", 0))
+
+func _save_progress() -> void:
+	var data := ConfigFile.new()
+	data.set_value("progress", "best_wave", best_wave)
+	data.set_value("progress", "total_kills", kills)
+	data.save("user://survival_save.cfg")
